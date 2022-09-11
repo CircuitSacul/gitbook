@@ -1,0 +1,25 @@
+[tool.black]
+line-length=79
+skip-magic-trailing-comma=true
+
+[tool.poetry]
+name = "gitbook"
+version = "0"
+description = "Python library for interacting with GitBook's API."
+authors = ["CircuitSacul <circuitsacul@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.group.dev.dependencies]
+nox = "^2022.8.7"
+mypy = "^0.971"
+flake8 = "^5.0.4"
+isort = "^5.10.1"
+black = "^22.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
