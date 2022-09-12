@@ -12,6 +12,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
+aiohttp = "^3.8.1"
+pydantic = "^1.10.2"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2022.8.7"
