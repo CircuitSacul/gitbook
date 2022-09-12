@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import aiohttp
 
 from gitbook import endpoints
-from gitbook.models import user
+from gitbook.models import space, user
+
+if TYPE_CHECKING:
+    from gitbook.endpoint import Paginated
 
 _LOGGER = logging.getLogger("gitbook")
 
@@ -29,6 +33,9 @@ class Client:
 
     async def get_user(self) -> user.User:
         return await endpoints.USER.execute(self)
+
+    def get_spaces(self) -> Paginated[space.Space]:
+        return endpoints.SPACES.execute(self)
 
     @property
     def _session(self) -> aiohttp.ClientSession:
