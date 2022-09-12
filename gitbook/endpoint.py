@@ -45,11 +45,11 @@ class PaginatedEndpoint(BaseEndpoint[_RETURN], Generic[_RETURN]):
     def __init__(self, method: str, path: str, model: type[_RETURN]) -> None:
         super().__init__(method, path, model)
 
-    def execute(self, client: Client) -> Paginated[_RETURN]:
-        return Paginated(self, client)
+    def execute(self, client: Client) -> Paginator[_RETURN]:
+        return Paginator(self, client)
 
 
-class Paginated(Generic[_RETURN]):
+class Paginator(Generic[_RETURN]):
     def __init__(
         self, endpoint: PaginatedEndpoint[_RETURN], client: Client
     ) -> None:
@@ -89,7 +89,7 @@ class Paginated(Generic[_RETURN]):
 
 class PaginatedResult(BaseModel, Generic[_RETURN]):
     _limit: Optional[int]
-    _endpoint: Paginated[_RETURN]
+    _endpoint: Paginator[_RETURN]
     items: list[_RETURN]
     next_page: Optional[str]
     prev_page: Optional[str]
