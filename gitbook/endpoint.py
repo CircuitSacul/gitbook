@@ -23,7 +23,7 @@ class BaseEndpoint(Generic[_RETURN]):
         self.method = method
         self.path = f"/{self.API_VERSION}/{path}"
         self.model = model
-        self.ratelimit = Ratelimit(self)
+        self.ratelimit = RateLimit(self)
 
     def __str__(self) -> str:
         return f"Endpoint({self.method}, {self.path})"
@@ -46,14 +46,15 @@ class PaginatedEndpoint(BaseEndpoint[_RETURN], Generic[_RETURN]):
         super().__init__(method, path, model)
 
     def execute(self, client: Client) -> Paginator[_RETURN]:
-        return Paginator(self, client)
+        return Paginator(self, self.path, client)
 
 
 class Paginator(Generic[_RETURN]):
     def __init__(
-        self, endpoint: PaginatedEndpoint[_RETURN], client: Client
+        self, endpoint: PaginatedEndpoint[_RETURN], path: str, client: Client
     ) -> None:
         self.endpoint = endpoint
+        self.path = path
         self.client = client
 
     async def fetch_page(
@@ -66,9 +67,7 @@ class Paginator(Generic[_RETURN]):
         if page is not None:
             params["page"] = page
         response = await self.client._session.request(
-            self.endpoint.method,
-            self.endpoint.path.format(limit=limit, page=page),
-            params=params,
+            self.endpoint.method, self.path, params=params
         )
         self.endpoint.ratelimit.parse_ratelimit(response)
         response.raise_for_status()
@@ -80,7 +79,7 @@ class Paginator(Generic[_RETURN]):
             prev_page = d["page"]
         return PaginatedResult(
             _limit=limit,
-            _endpoint=self,
+            _paginator=self,
             next_page=next_page,
             prev_page=prev_page,
             items=[self.endpoint.model(**d) for d in data["items"]],
@@ -89,7 +88,7 @@ class Paginator(Generic[_RETURN]):
 
 class PaginatedResult(BaseModel, Generic[_RETURN]):
     _limit: Optional[int]
-    _endpoint: Paginator[_RETURN]
+    _paginator: Paginator[_RETURN]
     items: list[_RETURN]
     next_page: Optional[str]
     prev_page: Optional[str]
@@ -97,19 +96,19 @@ class PaginatedResult(BaseModel, Generic[_RETURN]):
     async def next(self) -> PaginatedResult[_RETURN] | None:
         if self.next_page is None:
             return None
-        return await self._endpoint.fetch_page(
+        return await self._paginator.fetch_page(
             limit=self._limit, page=self.next_page
         )
 
     async def prev(self) -> PaginatedResult[_RETURN] | None:
         if self.prev_page is None:
             return None
-        return await self._endpoint.fetch_page(
+        return await self._paginator.fetch_page(
             limit=self._limit, page=self.prev_page
         )
 
 
-class Ratelimit:
+class RateLimit:
     def __init__(self, endpoint: BaseEndpoint[_RETURN]) -> None:
         self.endpoint = endpoint
 
