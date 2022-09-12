@@ -19,11 +19,28 @@ _LOGGER = logging.getLogger("gitbook")
 class BaseEndpoint(Generic[_RETURN]):
     API_VERSION = "v1"
 
-    def __init__(self, method: str, path: str, model: type[_RETURN]) -> None:
+    def __init__(
+        self,
+        method: str,
+        path: str,
+        model: type[_RETURN],
+        params: tuple[str] | None = None,
+    ) -> None:
+        self.params = params or ()
         self.method = method
         self.path = f"/{self.API_VERSION}/{path}"
         self.model = model
         self.ratelimit = RateLimit(self)
+
+    def _build_path(
+        self, /, **params: object
+    ) -> tuple[str, dict[str, object]]:
+        query_params: dict[str, object] = {}
+        for key in self.params:
+            if value := params.pop(key):
+                query_params[key] = value
+
+        return self.path.format(**params), query_params
 
     def __str__(self) -> str:
         return f"Endpoint({self.method}, {self.path})"
@@ -33,25 +50,39 @@ class BaseEndpoint(Generic[_RETURN]):
 
 
 class SingleEndpoint(BaseEndpoint[_RETURN], Generic[_RETURN]):
-    async def execute(self, client: Client) -> _RETURN:
+    async def execute(self, client: Client, /, **params: object) -> _RETURN:
         await self.ratelimit.acquire()
-        response = await client._session.request(self.method, self.path)
+        path, params = self._build_path(**params)
+        response = await client._session.request(
+            self.method, path, params=params
+        )
         self.ratelimit.parse_ratelimit(response)
         response.raise_for_status()
         return self.model(**await response.json())
 
 
 class PaginatedEndpoint(BaseEndpoint[_RETURN], Generic[_RETURN]):
-    def __init__(self, method: str, path: str, model: type[_RETURN]) -> None:
-        super().__init__(method, path, model)
+    def __init__(
+        self,
+        method: str,
+        path: str,
+        model: type[_RETURN],
+        params: tuple[str] | None = None,
+    ) -> None:
+        super().__init__(method, path, model, params)
 
-    def execute(self, client: Client) -> Paginator[_RETURN]:
-        return Paginator(self, self.path, client)
+    def execute(
+        self, client: Client, /, **params: dict[str, object]
+    ) -> Paginator[_RETURN]:
+        return Paginator(self, self._build_path(**params), client)
 
 
 class Paginator(Generic[_RETURN]):
     def __init__(
-        self, endpoint: PaginatedEndpoint[_RETURN], path: str, client: Client
+        self,
+        endpoint: PaginatedEndpoint[_RETURN],
+        path: tuple[str, dict[str, object]],
+        client: Client,
     ) -> None:
         self.endpoint = endpoint
         self.path = path
@@ -61,13 +92,13 @@ class Paginator(Generic[_RETURN]):
         self, *, limit: int | None = None, page: str | None = None
     ) -> PaginatedResult[_RETURN]:
         await self.endpoint.ratelimit.acquire()
-        params: dict[str, Any] = {}
+        params = self.path[1].copy()
         if limit is not None:
             params["limit"] = limit
         if page is not None:
             params["page"] = page
         response = await self.client._session.request(
-            self.endpoint.method, self.path, params=params
+            self.endpoint.method, self.path[0], params=params
         )
         self.endpoint.ratelimit.parse_ratelimit(response)
         response.raise_for_status()

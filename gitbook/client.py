@@ -28,8 +28,11 @@ class Client:
     async def cleanup(self) -> None:
         await self._session.close()
 
-    async def get_user(self) -> user.User:
-        return await endpoints.USER.execute(self)
+    async def get_user(self, id: str | None = None) -> user.User:
+        if id is None:
+            return await endpoints.CURRENT_USER.execute(self)
+        else:
+            return await endpoints.USER.execute(self, id=id)
 
     def get_spaces(self) -> Paginator[space.Space]:
         return endpoints.SPACES.execute(self)
