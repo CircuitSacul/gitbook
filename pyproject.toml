@@ -1,6 +1,17 @@
 [tool.black]
-line-length=79
-skip-magic-trailing-comma=true
+line-length = 79
+skip-magic-trailing-comma = true
+
+[tool.ruff]
+extend-select = [
+    # isort
+    "I001",
+]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+strict = true
 
 [tool.poetry]
 name = "gitbook"
@@ -18,9 +29,8 @@ pydantic = "^1.10.2"
 [tool.poetry.group.dev.dependencies]
 nox = "^2022.8.7"
 mypy = "^0.971"
-flake8 = "^5.0.4"
-isort = "^5.10.1"
 black = "^22.8.0"
+ruff = "^0.0.258"
 
 [build-system]
 requires = ["poetry-core"]
