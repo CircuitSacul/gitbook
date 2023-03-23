@@ -28,7 +28,7 @@ pydantic = "^1.10.7"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2022.8.7"
-mypy = "^0.971"
+mypy = ">=0.971,<1.2"
 black = "^23.1.0"
 ruff = "^0.0.258"
 
