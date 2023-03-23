@@ -17,14 +17,14 @@ strict = true
 name = "gitbook"
 version = "0"
 description = "Python library for interacting with GitBook's API."
-authors = ["CircuitSacul <circuitsacul@gmail.com>"]
+authors = ["CircuitSacul <circuitsacul@icloud.com>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-aiohttp = "^3.8.1"
-pydantic = "^1.10.2"
+aiohttp = "^3.8.4"
+pydantic = "^1.10.7"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2022.8.7"
