@@ -53,7 +53,7 @@ class SingleEndpoint(BaseEndpoint[_RETURN], Generic[_RETURN]):
     async def execute(self, client: Client, /, **params: object) -> _RETURN:
         await self.ratelimit.acquire()
         path, params = self._build_path(**params)
-        response = await client._session.request(
+        response = await (await client._get_session()).request(
             self.method, path, params=params
         )
         self.ratelimit.parse_ratelimit(response)
@@ -88,16 +88,38 @@ class Paginator(Generic[_RETURN]):
         self.path = path
         self.client = client
 
+        self.__last_page: PaginatedResult[_RETURN] | None = None
+        self.__limit: int | None = None
+
+    def limit(self, limit: int | None) -> Paginator[_RETURN]:
+        self.__limit = limit
+        return self
+
+    def __aiter__(self) -> Paginator[_RETURN]:
+        return self
+
+    async def __anext__(self) -> PaginatedResult[_RETURN]:
+        if self.__last_page:
+            page = await self.__last_page.next()
+        else:
+            page = await self.fetch_page(limit=self.__limit)
+        self.__last_page = page
+        if page is None:
+            raise StopAsyncIteration
+        return page
+
     async def fetch_page(
-        self, *, limit: int | None = None, page: str | None = None
+        self, page: str | None = None, *, limit: int | None = None
     ) -> PaginatedResult[_RETURN]:
+        limit = limit or self.__limit
+
         await self.endpoint.ratelimit.acquire()
         params = self.path[1].copy()
         if limit is not None:
             params["limit"] = limit
         if page is not None:
             params["page"] = page
-        response = await self.client._session.request(
+        response = await (await self.client._get_session()).request(
             self.endpoint.method, self.path[0], params=params
         )
         self.endpoint.ratelimit.parse_ratelimit(response)
@@ -108,6 +130,7 @@ class Paginator(Generic[_RETURN]):
             next_page = d["page"]
         if d := data.get("previous"):
             prev_page = d["page"]
+
         return PaginatedResult(
             _limit=limit,
             _paginator=self,
@@ -128,14 +151,14 @@ class PaginatedResult(BaseModel, Generic[_RETURN]):
         if self.next_page is None:
             return None
         return await self._paginator.fetch_page(
-            limit=self._limit, page=self.next_page
+            page=self.next_page, limit=self._limit
         )
 
     async def prev(self) -> PaginatedResult[_RETURN] | None:
         if self.prev_page is None:
             return None
         return await self._paginator.fetch_page(
-            limit=self._limit, page=self.prev_page
+            page=self.prev_page, limit=self._limit
         )
 
 

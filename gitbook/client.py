@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import aiohttp
 
 from gitbook import endpoints
-from gitbook.models import space, user
+from gitbook.models import organization, space, user
 
 if TYPE_CHECKING:
     from gitbook.endpoint import Paginator
@@ -20,13 +20,9 @@ class Client:
 
         self.__session: aiohttp.ClientSession | None = None
 
-    async def connect(self) -> None:
-        headers: dict[str, str] = {"Authorization": f"Bearer {self.token}"}
-
-        self.__session = aiohttp.ClientSession(self.base_url, headers=headers)
-
     async def cleanup(self) -> None:
-        await self._session.close()
+        if self.__session and not self.__session.closed:
+            await self.__session.close()
 
     async def get_user(self, id: str | None = None) -> user.User:
         if id is None:
@@ -37,8 +33,14 @@ class Client:
     def get_spaces(self) -> Paginator[space.Space]:
         return endpoints.SPACES.execute(self)
 
-    @property
-    def _session(self) -> aiohttp.ClientSession:
-        if self.__session is None:
-            raise AttributeError("Client not initialized.")
+    def get_organizations(self) -> Paginator[organization.Organization]:
+        return endpoints.ORGANIZATIONS.execute(self)
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self.__session is None or self.__session.closed:
+            headers: dict[str, str] = {"Authorization": f"Bearer {self.token}"}
+            self.__session = aiohttp.ClientSession(
+                self.base_url, headers=headers
+            )
+
         return self.__session
